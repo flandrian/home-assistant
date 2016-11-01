@@ -8,7 +8,7 @@ from homeassistant.const import CONF_NAME, CONF_ID
 from homeassistant.components.cover import (
     CoverDevice, SUPPORT_OPEN, SUPPORT_CLOSE, ATTR_POSITION,
     ATTR_TILT_POSITION)
-from homeassistant.components.enocean import EnOceanDevice
+from .device import EnOceanEntity
 
 DEPENDENCIES = ['enocean']
 
@@ -24,14 +24,13 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
     add_entities([EnOceanCover(dev_id, name, sender_id, channel)])
 
 
-class EnOceanCover(EnOceanDevice, CoverDevice):
+class EnOceanCover(EnOceanEntity, CoverDevice):
 
     _POS_NO_CHANGE = 127
     _ANG_NO_CHANGE = 127
 
     def __init__(self, dev_id, name, sender_id, channel):
-        EnOceanDevice.__init__(self, dev_id)
-        self._name = name
+        super().__init__(dev_id, name)
         self._sender_id = sender_id
         self._channel = int(channel)
         self._position = 0
@@ -59,7 +58,7 @@ class EnOceanCover(EnOceanDevice, CoverDevice):
     @property
     def name(self):
         """Return the name of the cover."""
-        return self._name
+        return self.dev_name
         
     @property
     def current_cover_position(self):

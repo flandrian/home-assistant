@@ -55,3 +55,19 @@ async def async_unload_entry(hass, config_entry):
     hass.data.pop(DATA_ENOCEAN)
 
     return True
+
+async def async_unload_entry(hass, config_entry):
+    """Unload ENOcean config entry."""
+
+    enocean_dongle = hass.data[DATA_ENOCEAN][ENOCEAN_DONGLE]
+    enocean_dongle.unload()
+    hass.data.pop(DATA_ENOCEAN)
+
+    return True
+
+def parse_eep_config(eep_string):
+    eep_number_strings = eep_string.split('-')
+    return {
+        'rorg':int(eep_number_strings[0], 16),
+        'func':int(eep_number_strings[1], 16),
+        'type':int(eep_number_strings[2], 16)}
