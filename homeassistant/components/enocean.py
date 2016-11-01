@@ -36,6 +36,13 @@ def setup(hass, config):
 
     return True
 
+def parse_eep_config(eep_string):
+    eep_number_strings = eep_string.split('-')
+    return {
+        'rorg':int(eep_number_strings[0], 16),
+        'func':int(eep_number_strings[1], 16),
+        'type':int(eep_number_strings[2], 16)}
+
 
 class EnOceanDongle:
     """Representation of an EnOcean dongle."""
@@ -46,15 +53,22 @@ class EnOceanDongle:
         self.__communicator = SerialCommunicator(
             port=ser, callback=self.callback)
         self.__communicator.start()
-        self.__devices = []
+        self._devices_by_id = {}
 
     def register_device(self, dev):
         """Register another device."""
-        self.__devices.append(dev)
+        decice_id_hex = self._combine_hex(dev._device_id)
+        if decice_id_hex not in self._devices_by_id:
+            self._devices_by_id[decice_id_hex] = list()
+        self._devices_by_id[decice_id_hex].append(dev)
 
     def send_command(self, command):
         """Send a command from the EnOcean dongle."""
         self.__communicator.send(command)
+
+    def get_base_id(self):
+        """Return a copy of the base ID"""
+        return self.__communicator.base_id.copy()
 
     # pylint: disable=no-self-use
     def _combine_hex(self, data):
@@ -67,62 +81,26 @@ class EnOceanDongle:
     def callback(self, temp):
         """Handle EnOcean device's callback.
 
-        This is the callback function called by python-enocan whenever there
-        is an incoming packet.
+        This is the callback function called by
+        python-enocean whenever there is an incoming
+        packet.
         """
+        #_LOGGER.info('packet received ' + str(temp))
         from enocean.protocol.packet import RadioPacket
         if isinstance(temp, RadioPacket):
-            _LOGGER.debug("Received radio packet: %s", temp)
-            rxtype = None
-            value = None
-            channel = 0
-            if temp.data[6] == 0x30:
-                rxtype = "wallswitch"
-                value = 1
-            elif temp.data[6] == 0x20:
-                rxtype = "wallswitch"
-                value = 0
-            elif temp.data[4] == 0x0c:
-                rxtype = "power"
-                value = temp.data[3] + (temp.data[2] << 8)
-            elif temp.data[2] & 0x60 == 0x60:
-                rxtype = "switch_status"
-                channel = temp.data[2] & 0x1F
-                if temp.data[3] == 0xe4:
-                    value = 1
-                elif temp.data[3] == 0x80:
-                    value = 0
-            elif temp.data[0] == 0xa5 and temp.data[1] == 0x02:
-                rxtype = "dimmerstatus"
-                value = temp.data[2]
-            for device in self.__devices:
-                if rxtype == "wallswitch" and device.stype == "listener":
-                    if temp.sender_int == self._combine_hex(device.dev_id):
-                        device.value_changed(value, temp.data[1])
-                if rxtype == "power" and device.stype == "powersensor":
-                    if temp.sender_int == self._combine_hex(device.dev_id):
-                        device.value_changed(value)
-                if rxtype == "power" and device.stype == "switch":
-                    if temp.sender_int == self._combine_hex(device.dev_id):
-                        if value > 10:
-                            device.value_changed(1)
-                if rxtype == "switch_status" and device.stype == "switch" and \
-                        channel == device.channel:
-                    if temp.sender_int == self._combine_hex(device.dev_id):
-                        device.value_changed(value)
-                if rxtype == "dimmerstatus" and device.stype == "dimmer":
-                    if temp.sender_int == self._combine_hex(device.dev_id):
-                        device.value_changed(value)
+            sender_int  = self._combine_hex(temp.sender)
+            if sender_int in self._devices_by_id:
+                for device in self._devices_by_id[sender_int]:
+                    device.handle_packet(temp)
 
 
 class EnOceanDevice():
     """Parent class for all devices associated with the EnOcean component."""
 
-    def __init__(self):
+    def __init__(self, device_id):
         """Initialize the device."""
+        self._device_id = device_id
         ENOCEAN_DONGLE.register_device(self)
-        self.stype = ""
-        self.sensorid = [0x00, 0x00, 0x00, 0x00]
 
     # pylint: disable=no-self-use
     def send_command(self, data, optional, packet_type):
@@ -130,3 +108,14 @@ class EnOceanDevice():
         from enocean.protocol.packet import Packet
         packet = Packet(packet_type, data=data, optional=optional)
         ENOCEAN_DONGLE.send_command(packet)
+
+    def create_and_send_packet(self, **kwargs):
+        from enocean.protocol.packet import RadioPacket
+        packet = RadioPacket.create(**kwargs)
+        ENOCEAN_DONGLE.send_command(packet)
+
+    def get_base_id(self, offset=0):
+        """Return a copy of the base ID, with offset applied"""
+        id = ENOCEAN_DONGLE.get_base_id()
+        id[3] += offset
+        return id
