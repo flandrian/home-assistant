@@ -254,6 +254,40 @@ CONF_UNIT_SYSTEM_IMPERIAL = 'imperial'  # type: str
 
 # Electrical attributes
 ATTR_VOLTAGE = 'voltage'
+CURRENT_MA = 'mA'
+POWER_WATT = 'W'
+
+# Temperature attribute
+ATTR_TEMPERATURE = 'temperature'
+TEMP_CELSIUS = '°C'
+TEMP_FAHRENHEIT = '°F'
+
+# Length units
+LENGTH_CENTIMETERS = 'cm'  # type: str
+LENGTH_METERS = 'm'  # type: str
+LENGTH_KILOMETERS = 'km'  # type: str
+
+LENGTH_INCHES = 'in'  # type: str
+LENGTH_FEET = 'ft'  # type: str
+LENGTH_YARD = 'yd'  # type: str
+LENGTH_MILES = 'mi'  # type: str
+
+# Volume units
+VOLUME_LITERS = 'L'  # type: str
+VOLUME_MILLILITERS = 'mL'  # type: str
+
+VOLUME_GALLONS = 'gal'  # type: str
+VOLUME_FLUID_OUNCE = 'fl. oz.'  # type: str
+
+# Mass units
+MASS_GRAMS = 'g'  # type: str
+MASS_KILOGRAMS = 'kg'  # type: str
+
+MASS_OUNCES = 'oz'  # type: str
+MASS_POUNDS = 'lb'  # type: str
+
+# Volume flow units
+FLOW_L_PER_S = 'l/s'
 
 # Contains the information that is discovered
 ATTR_DISCOVERED = 'discovered'
