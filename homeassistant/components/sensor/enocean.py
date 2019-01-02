@@ -38,7 +38,7 @@ class EnOceanSensor(enocean.EnOceanDevice, Entity):
 
     def __init__(self, dev_id, devname):
         """Initialize the EnOcean sensor device."""
-        enocean.EnOceanDevice.__init__(self)
+        enocean.EnOceanDevice.__init__(self, dev_id)
         self.stype = "powersensor"
         self.power = None
         self.dev_id = dev_id
