@@ -57,11 +57,18 @@ class EnOceanDongle:
 
     def register_device(self, dev):
         """Register another device."""
-        self._devices_by_id[self._combine_hex(dev._device_id)] = dev
+        decice_id_hex = self._combine_hex(dev._device_id)
+        if decice_id_hex not in self._devices_by_id:
+            self._devices_by_id[decice_id_hex] = list()
+        self._devices_by_id[decice_id_hex].append(dev)
 
     def send_command(self, command):
         """Send a command from the EnOcean dongle."""
         self.__communicator.send(command)
+
+    def get_base_id(self):
+        """Return a copy of the base ID"""
+        return self.__communicator.base_id.copy()
 
     # pylint: disable=no-self-use
     def _combine_hex(self, data):
@@ -78,12 +85,13 @@ class EnOceanDongle:
         python-enocean whenever there is an incoming
         packet.
         """
-        _LOGGER.info('packet received ' + str(temp))
+        #_LOGGER.info('packet received ' + str(temp))
         from enocean.protocol.packet import RadioPacket
         if isinstance(temp, RadioPacket):
             sender_int  = self._combine_hex(temp.sender)
             if sender_int in self._devices_by_id:
-                self._devices_by_id[sender_int].handle_packet(temp)
+                for device in self._devices_by_id[sender_int]:
+                    device.handle_packet(temp)
 
 
 class EnOceanDevice():
@@ -100,3 +108,14 @@ class EnOceanDevice():
         from enocean.protocol.packet import Packet
         packet = Packet(packet_type, data=data, optional=optional)
         ENOCEAN_DONGLE.send_command(packet)
+
+    def create_and_send_packet(self, **kwargs):
+        from enocean.protocol.packet import RadioPacket
+        packet = RadioPacket.create(**kwargs)
+        ENOCEAN_DONGLE.send_command(packet)
+
+    def get_base_id(self, offset=0):
+        """Return a copy of the base ID, with offset applied"""
+        id = ENOCEAN_DONGLE.get_base_id()
+        id[3] += offset
+        return id
