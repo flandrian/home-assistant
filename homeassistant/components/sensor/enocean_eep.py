@@ -93,7 +93,7 @@ class EnoceanSensorA510(Entity):
             self._humidity = packet.parsed['HUM']['value']
         except KeyError:
             pass
-        self.update_ha_state()
+        self.schedule_update_ha_state()
 
     @property
     def should_poll(self):
@@ -150,7 +150,7 @@ class EnoceanSensorA512(Entity):
         value = packet.parsed['MR']['value']
         multiplier = pow(10, packet.parsed['DIV']['value'])
         self._state = value * multiplier
-        self.update_ha_state()
+        self.schedule_update_ha_state()
 
     @property
     def should_poll(self):
