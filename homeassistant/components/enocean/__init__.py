@@ -83,6 +83,12 @@ class EnOceanDevice(Entity):
     def value_changed(self, packet):
         """Update the internal state of the device when a packet arrives."""
 
+    def assemble_and_send_radiopacket(self, **kwargs):
+        from enocean.protocol.packet import RadioPacket
+        packet = RadioPacket.create(**kwargs)
+        self.hass.helpers.dispatcher.dispatcher_send(
+            SIGNAL_SEND_MESSAGE, packet)
+
     # pylint: disable=no-self-use
     def send_command(self, data, optional, packet_type):
         """Send a command via the EnOcean dongle."""
