@@ -1,6 +1,6 @@
 """Representation of an EnOcean device."""
 
-from enocean.protocol.packet import Packet
+from enocean.protocol.packet import PACKET, Packet
 from enocean.utils import combine_hex
 
 from homeassistant.helpers.dispatcher import async_dispatcher_connect, dispatcher_send
@@ -32,6 +32,31 @@ class EnOceanEntity(Entity):
 
     def value_changed(self, packet):
         """Update the internal state of the device when a packet arrives."""
+
+    def crate_and_send_packet(
+        self,
+        rorg,
+        func,
+        type,
+        command=None,
+        destination=None,
+        sender=None,
+        learn=False,
+        **kwargs,
+    ):
+        """Send a command via the EnOcean dongle."""
+        packet = Packet.create(
+            PACKET.RADIO,
+            rorg=rorg,
+            rorg_func=func,
+            rorg_type=type,
+            command=command,
+            destination=destination,
+            sender=sender,
+            learn=learn,
+            **kwargs,
+        )
+        dispatcher_send(self.hass, SIGNAL_SEND_MESSAGE, packet)
 
     def send_command(self, data, optional, packet_type):
         """Send a command via the EnOcean dongle."""

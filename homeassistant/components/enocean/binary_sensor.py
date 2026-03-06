@@ -73,42 +73,44 @@ class EnOceanBinarySensor(EnOceanEntity, BinarySensorEntity):
 
         This method is called when there is an incoming packet associated
         with this platform.
-
-        Example packet data:
-        - 2nd button pressed
-            ['0xf6', '0x10', '0x00', '0x2d', '0xcf', '0x45', '0x30']
-        - button released
-            ['0xf6', '0x00', '0x00', '0x2d', '0xcf', '0x45', '0x20']
         """
-        # Energy Bow
-        pushed = None
 
-        if packet.data[6] == 0x30:
+        packet.parse_eep(rorg_func=0x02, rorg_type=0x02)
+        if not packet.parsed["T21"]["value"]:
+            pushed = None
+        if packet.parsed["NU"]["value"]:
             pushed = 1
-        elif packet.data[6] == 0x20:
+        else:
             pushed = 0
+
+        if packet.parsed["EB"]["value"] == "pressed":
+            if packet.parsed["R1"]["value"] == "Button AI":
+                self.which = 1
+                self.onoff = 1
+            elif packet.parsed["R1"]["value"] == "Button AO":
+                self.which = 1
+                self.onoff = 0
+            elif packet.parsed["R1"]["value"] == "Button BI":
+                self.which = 0
+                self.onoff = 1
+            elif packet.parsed["R1"]["value"] == "Button BO":
+                self.which = 0
+                self.onoff = 0
+
+            if packet.parsed["SA"]["value"] == "2nd action valid":
+                if (packet.parsed["R1"]["value"] == "Button AO") and (
+                    packet.parsed["R2"]["value"] == "Button BO"
+                ):
+                    self.which = 10
+                    self.onoff = 0
+                elif (packet.parsed["R1"]["value"] == "Button AI") and (
+                    packet.parsed["R2"]["value"] == "Button BI"
+                ):
+                    self.which = 10
+                    self.onoff = 1
 
         self.schedule_update_ha_state()
 
-        action = packet.data[1]
-        if action == 0x70:
-            self.which = 0
-            self.onoff = 0
-        elif action == 0x50:
-            self.which = 0
-            self.onoff = 1
-        elif action == 0x30:
-            self.which = 1
-            self.onoff = 0
-        elif action == 0x10:
-            self.which = 1
-            self.onoff = 1
-        elif action == 0x37:
-            self.which = 10
-            self.onoff = 0
-        elif action == 0x15:
-            self.which = 10
-            self.onoff = 1
         self.hass.bus.fire(
             EVENT_BUTTON_PRESSED,
             {

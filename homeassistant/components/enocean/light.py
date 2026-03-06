@@ -72,18 +72,32 @@ class EnOceanLight(EnOceanEntity, LightEntity):
         bval = math.floor(self._attr_brightness / 256.0 * 100.0)
         if bval == 0:
             bval = 1
-        command = [0xA5, 0x02, bval, 0x01, 0x09]
-        command.extend(self._sender_id)
-        command.extend([0x00])
-        self.send_command(command, [], 0x01)
+        self.crate_and_send_packet(
+            rorg=0xA5,
+            func=0x38,
+            type=0x08,
+            command=0x02,
+            sender=self._sender_id,
+            COM=2,
+            EDIM=bval,
+            RMP=1,
+            SW=1,
+        )
         self._attr_is_on = True
 
     def turn_off(self, **kwargs: Any) -> None:
         """Turn the light source off."""
-        command = [0xA5, 0x02, 0x00, 0x01, 0x09]
-        command.extend(self._sender_id)
-        command.extend([0x00])
-        self.send_command(command, [], 0x01)
+        self.crate_and_send_packet(
+            rorg=0xA5,
+            func=0x38,
+            type=0x08,
+            command=0x02,
+            sender=self._sender_id,
+            COM=2,
+            EDIM=0,
+            RMP=1,
+            SW=1,
+        )
         self._attr_is_on = False
 
     def value_changed(self, packet):
@@ -92,8 +106,12 @@ class EnOceanLight(EnOceanEntity, LightEntity):
         Dimmer devices like Eltako FUD61 send telegram in different RORGs.
         We only care about the 4BS (0xA5).
         """
-        if packet.data[0] == 0xA5 and packet.data[1] == 0x02:
-            val = packet.data[2]
+        if packet.rorg != 0xA5:
+            return
+        packet.parse_eep(rorg_func=0x38, rorg_type=0x08)
+        if packet.parsed["COM"]["value"] == "Command ID 2":
+            packet.parse_eep(rorg_func=0x38, rorg_type=0x08, command=2)
+            val = packet.parsed["EDIM"]["value"]
             self._attr_brightness = math.floor(val / 100.0 * 256.0)
             self._attr_is_on = bool(val != 0)
             self.schedule_update_ha_state()

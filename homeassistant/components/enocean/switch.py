@@ -92,32 +92,36 @@ class EnOceanSwitch(EnOceanEntity, SwitchEntity):
 
     def turn_on(self, **kwargs: Any) -> None:
         """Turn on the switch."""
-        optional = [0x03]
-        optional.extend(self.dev_id)
-        optional.extend([0xFF, 0x00])
-        self.send_command(
-            data=[0xD2, 0x01, self.channel & 0xFF, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00],
-            optional=optional,
-            packet_type=0x01,
+        self.crate_and_send_packet(
+            rorg=0xD2,
+            func=0x01,
+            type=0x01,
+            command=1,
+            destination=self.dev_id,
+            DV=0,
+            IO=self.channel,
+            OV=100,
         )
         self._attr_is_on = True
 
     def turn_off(self, **kwargs: Any) -> None:
         """Turn off the switch."""
-        optional = [0x03]
-        optional.extend(self.dev_id)
-        optional.extend([0xFF, 0x00])
-        self.send_command(
-            data=[0xD2, 0x01, self.channel & 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
-            optional=optional,
-            packet_type=0x01,
+        self.crate_and_send_packet(
+            rorg=0xD2,
+            func=0x01,
+            type=0x01,
+            command=1,
+            destination=self.dev_id,
+            DV=0,
+            IO=self.channel,
+            OV=0,
         )
         self._attr_is_on = False
 
     def value_changed(self, packet):
         """Update the internal state of the switch."""
         if packet.data[0] == 0xA5:
-            # power meter telegram, turn on if > 10 watts
+            # power meter telegram, turn on if > 1 watt
             packet.parse_eep(0x12, 0x01)
             if packet.parsed["DT"]["raw_value"] == 1:
                 raw_val = packet.parsed["MR"]["raw_value"]

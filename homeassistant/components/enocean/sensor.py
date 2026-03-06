@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from enocean.protocol.packet import RadioPacket
 from enocean.utils import combine_hex
 import voluptuous as vol
 
@@ -182,7 +183,8 @@ class EnOceanPowerSensor(EnOceanSensor):
         if packet.rorg != 0xA5:
             return
         packet.parse_eep(0x12, 0x01)
-        if packet.parsed["DT"]["raw_value"] == 1:
+        # if D(ata)T(ype) is W(att)
+        if packet.parsed["DT"]["value"] == "W":
             # this packet reports the current value
             raw_val = packet.parsed["MR"]["raw_value"]
             divisor = packet.parsed["DIV"]["raw_value"]
@@ -228,10 +230,12 @@ class EnOceanTemperatureSensor(EnOceanSensor):
 
     def value_changed(self, packet):
         """Update the internal state of the sensor."""
-        if packet.data[0] != 0xA5:
+        if packet.rorg != 0xA5:
             return
         temp_scale = self._scale_max - self._scale_min
         temp_range = self.range_to - self.range_from
+        # this is an evil hack: raw temperature data happens to be
+        # at the same location for all listed sensors
         raw_val = packet.data[3]
         temperature = temp_scale / temp_range * (raw_val - self.range_from)
         temperature += self._scale_min
@@ -248,11 +252,12 @@ class EnOceanHumiditySensor(EnOceanSensor):
     - A5-10-10 to A5-10-14 (Room Operating Panels)
     """
 
-    def value_changed(self, packet):
+    def value_changed(self, packet: RadioPacket):
         """Update the internal state of the sensor."""
         if packet.rorg != 0xA5:
             return
-        humidity = packet.data[2] * 100 / 250
+        packet.parse_eep(rorg_func=0x04, rorg_type=0x01)
+        humidity = packet.parsed["HUM"]["value"]
         self._attr_native_value = round(humidity, 1)
         self.schedule_update_ha_state()
 
@@ -264,15 +269,17 @@ class EnOceanWindowHandle(EnOceanSensor):
     - F6-10-00 (Mechanical handle / Hoppe AG)
     """
 
-    def value_changed(self, packet):
+    def value_changed(self, packet: RadioPacket):
         """Update the internal state of the sensor."""
-        action = (packet.data[1] & 0x70) >> 4
-
-        if action == 0x07:
-            self._attr_native_value = STATE_CLOSED
-        if action in (0x04, 0x06):
+        packet.parse_eep(rorg_func=0x10, rorg_type=0x00)
+        if packet.parsed["WIN"]["value"] in (
+            "Moved from up to vertical",
+            "Moved from down to vertical",
+        ):
             self._attr_native_value = STATE_OPEN
-        if action == 0x05:
+        elif packet.parsed["WIN"]["value"] == "Moved from vertical to down":
+            self._attr_native_value = STATE_CLOSED
+        elif packet.parsed["WIN"]["value"] == "Moved from vertical to up":
             self._attr_native_value = "tilt"
 
         self.schedule_update_ha_state()
